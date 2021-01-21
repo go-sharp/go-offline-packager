@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/go-sharp/color"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/go-sharp/color"
 )
 
 type PackCmd struct {
@@ -31,7 +32,7 @@ func (p *PackCmd) Execute(args []string) error {
 	defer cleanFn()
 
 	modCache := filepath.Join(workDir, "modcache")
-	if err := os.Mkdir(modCache, 0777); err != nil {
+	if err := os.Mkdir(modCache, 0774); err != nil {
 		log.Fatalf("%v: failed to create mod cache directory: %v\n", color.RedString("error"), err)
 	}
 
@@ -41,12 +42,12 @@ func (p *PackCmd) Execute(args []string) error {
 		if err != nil {
 			log.Fatalf("failed to copy go.mod file: %v\n", color.RedString(err.Error()))
 		}
-		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), modContent, 0666); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), modContent, 0664); err != nil {
 			log.Fatalf("failed to copy go.mod file: %v\n", color.RedString(err.Error()))
 		}
 	} else {
 		verboseF("processing modules\n")
-		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), []byte(gomodTemp), 0666); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), []byte(gomodTemp), 0664); err != nil {
 			log.Fatalf("failed to write go.mod file: %v\n", color.RedString(err.Error()))
 		}
 
@@ -66,7 +67,7 @@ func (p *PackCmd) Execute(args []string) error {
 	cmd := exec.Command(commonOpts.GoBinPath, "mod", "download", "all")
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(), "GOMODCACHE="+modCache)
-	if  err := cmd.Run(); err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatalln("failed to download dependencies:", color.RedString(err.Error()))
 	}
 

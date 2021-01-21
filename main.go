@@ -3,8 +3,6 @@ package main
 import (
 	"archive/zip"
 	"errors"
-	"github.com/go-sharp/color"
-	"github.com/jessevdk/go-flags"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,6 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-sharp/color"
+	"github.com/jessevdk/go-flags"
 )
 
 var commonOpts options
@@ -65,7 +66,7 @@ func createTempWorkDir() (wd string, cleanFn func()) {
 func removeContent(dir string) {
 	defer func() {
 		if err := os.Remove(dir); err != nil {
-			verboseF("can't remove directory %v: %v\n", err)
+			verboseF("can't remove directory: %v\n", err)
 		}
 	}()
 
@@ -99,7 +100,7 @@ func removeContent(dir string) {
 
 		_ = os.Chmod(fpath, 0666)
 		if err := os.Remove(fpath); err != nil {
-			verboseF("can't remove directory %v: %v\n", err)
+			verboseF("can't remove directory: %v\n", err)
 		}
 	}
 }
@@ -143,7 +144,7 @@ func extractZipArchive(src, dst string) error {
 	return nil
 }
 
-func extractToFile(f *zip.File, dst string)  {
+func extractToFile(f *zip.File, dst string) {
 	destF, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Println(errorRedPrefix, "failed to extract file", f.Name, ":", err)
