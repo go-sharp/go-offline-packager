@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 )
 
-var packCmd PackCmd
-
 type PackCmd struct {
 	Module  []string `short:"m" long:"module" description:"Modules to pack (github.com/jessevdk/go-flags or github.com/jessevdk/go-flags@v1.4.0)"`
 	ModFile string   `short:"g" long:"go-mod-file" description:"Pack all dependencies specified in go.mod file."`

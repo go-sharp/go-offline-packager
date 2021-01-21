@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"errors"
 	"github.com/go-sharp/color"
 	"github.com/jessevdk/go-flags"
 	"io"
@@ -25,14 +26,17 @@ go 1.13
 `
 
 type options struct {
-	GoBinPath string `long:"go-bin" env:"GOP_GO_BIN" description:"Set full path to go binary (default: go binary in paths)"`
+	GoBinPath string `long:"go-bin" env:"GOP_GO_BIN" description:"Set full path to go binary"`
 	Verbose   bool   `short:"v" long:"verbose" description:"Verbose output"`
 }
 
 func init() {
 	log.SetFlags(0)
-	_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.", "Download modules and pack it into a zip file.", &packCmd)
+	_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.",
+		"Download modules and pack it into a zip file.", &PackCmd{})
 
+	_, _ = parser.AddCommand("publish-folder", "Publish archive to a folder so it can be used as proxy source.",
+		"Publish archive to a folder so it can be used as proxy source.", &FolderPublishCmd{})
 	if p, err := exec.LookPath("go"); err == nil {
 		commonOpts.GoBinPath = p
 	}
@@ -112,6 +116,54 @@ func checkGo() {
 	}
 }
 
+func extractZipArchive(src, dst string) error {
+	if _, err := os.Stat(dst); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		if err := os.MkdirAll(dst, 0777); err != nil {
+			return err
+		}
+	}
+
+	zipReader, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer zipReader.Close()
+
+	for _, f := range zipReader.File {
+		dFName := filepath.Join(dst, f.Name)
+		// We ignore the error here because we get one as soon we open the file
+		_ = os.MkdirAll(filepath.Dir(dFName), 0777)
+		extractToFile(f, dFName)
+		os.Chtimes(dFName, f.Modified, f.Modified)
+	}
+	return nil
+}
+
+func extractToFile(f *zip.File, dst string)  {
+	destF, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Println(errorRedPrefix, "failed to extract file", f.Name, ":", err)
+		return
+	}
+	defer destF.Close()
+
+	srcF, err := f.Open()
+	if err != nil {
+		log.Println(errorRedPrefix, "failed to extract file", f.Name, ":", err)
+		return
+	}
+	defer srcF.Close()
+
+	if _, err := io.Copy(destF, srcF); err != nil {
+		log.Println(errorRedPrefix, "failed to extract file", f.Name, ":", err)
+		return
+	}
+}
+
 func createZipArchive(dir, dst string) error {
 	fw, err := os.OpenFile(dst, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
@@ -144,8 +196,21 @@ func createZipArchive(dir, dst string) error {
 			continue
 		}
 
+		fiStat, err := os.Stat(f)
+		if err != nil {
+			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
+			continue
+		}
+
 		name := strings.TrimLeft(strings.TrimPrefix(f, dir), string(filepath.Separator))
-		writer, err := zw.Create(name)
+		fh, err := zip.FileInfoHeader(fiStat)
+		if err != nil {
+			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
+			continue
+		}
+		fh.Name = name
+
+		writer, err := zw.CreateHeader(fh)
 		if err != nil {
 			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
 			continue
