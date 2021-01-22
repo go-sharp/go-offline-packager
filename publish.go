@@ -2,13 +2,16 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/go-sharp/color"
 )
@@ -19,6 +22,120 @@ type publishCmd struct {
 	} `positional-args:"yes" required:"1"`
 }
 
+type JFrogPublishCmd struct {
+	publishCmd
+	JFrogBinPath string `long:"jfrog-bin" env:"GOP_JFROG_BIN" description:"Set full path to the jfrog-cli binary"`
+	Repo         string `short:"r" long:"repo" required:"yes" description:"Artifactory go repository name ex. go-local."`
+}
+
+// Execute will be called for the last active (sub)command. The
+// args argument contains the remaining command line arguments. The
+// error that Execute returns will be eventually passed out of the
+// Parse method of the Parser.
+func (j *JFrogPublishCmd) Execute(args []string) error {
+	log.SetPrefix("Publish-JFrog: ")
+	if j.JFrogBinPath == "" {
+		if p, err := exec.LookPath("jfrog"); err == nil {
+			if !filepath.IsAbs(p) {
+				p, _ = filepath.Abs(p)
+			}
+			j.JFrogBinPath = p
+		}
+	}
+
+	if j.JFrogBinPath == "" {
+		log.Fatalln(errorRedPrefix, "missing jfrog cli: install jfrog-cli or specify valid binary path with --jfrog-bin")
+	}
+
+	cfg := j.getJFrogCfg()
+	if len(cfg) == 0 {
+		log.Fatalln(errorRedPrefix, "jfrog is not configured")
+	}
+
+	// Print config used
+	for _, i := range cfg {
+		log.Println("config:", color.BlueString(i))
+	}
+
+	workDir, cleanFn := createTempWorkDir()
+	defer cleanFn()
+
+	log.Println("extracting archive")
+	if err := extractZipArchive(j.PosArgs.Archive, workDir); err != nil {
+		log.Fatalln(errorRedPrefix, " failed to extract archive:", err)
+	}
+
+	workCh := make(chan string, 10)
+	doneCh := make(chan struct{})
+	go func() {
+		for mod := range workCh {
+			pkg := strings.Split(filepath.Base(mod), "@")
+			if len(pkg) != 2 {
+				log.Println(color.YellowString("warning:"), "invalid module directory:", filepath.Base(mod))
+				continue
+			}
+
+			goModF := filepath.Join(mod, "go.mod")
+			if _, err := os.Stat(goModF); errors.Is(err, os.ErrNotExist) {
+				modName := filepath.Dir(strings.TrimPrefix(mod, workDir+string(filepath.Separator)))
+				modName = strToModuleName(modName + "/" + pkg[0])
+				if err := ioutil.WriteFile(goModF, []byte(fmt.Sprintf("module %v\n", modName)), 0664); err != nil {
+					verboseF("%v: %v\n", errorRedPrefix, err)
+				}
+			}
+
+			cmd := exec.Command(j.JFrogBinPath, "rt", "gp", j.Repo, pkg[1])
+			cmd.Dir = mod
+
+			verboseF("publishing module %v %v\n", color.BlueString(pkg[0]), color.BlueString(pkg[1]))
+			if output, err := cmd.CombinedOutput(); err != nil {
+				log.Println(errorRedPrefix, "failed publish module:", pkg[0], pkg[1], err)
+				if len(output) > 0 {
+					verboseF("%v\n%v", errorRedPrefix, string(output))
+				}
+				continue
+			}
+		}
+		doneCh <- struct{}{}
+	}()
+
+	log.Println("publishing modules")
+	filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+		if strings.HasPrefix(info.Name(), "cache") {
+			return filepath.SkipDir
+		}
+
+		if !info.IsDir() || !strings.Contains(info.Name(), "@") {
+			return nil
+		}
+		workCh <- path
+		return filepath.SkipDir
+	})
+	close(workCh)
+
+	<-doneCh
+
+	log.Println("modules successfully uploaded")
+	return nil
+}
+
+func (j JFrogPublishCmd) getJFrogCfg() (config []string) {
+	data, err := exec.Command(j.JFrogBinPath, "rt", "c", "show").Output()
+	if err != nil {
+		log.Fatalln(errorRedPrefix, "failed to get jfrog config:", err)
+	}
+
+	for _, v := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(strings.ToLower(v), "server") || strings.HasPrefix(strings.ToLower(v), "url") ||
+			strings.HasPrefix(strings.ToLower(v), "user") {
+			config = append(config, v)
+		}
+	}
+
+	return config
+}
+
+// FolderPublishCmd publishes an archive of modules to a folder.
 type FolderPublishCmd struct {
 	publishCmd
 	Output string `short:"o" long:"out" required:"yes" description:"Output folder for the archive."`
@@ -181,4 +298,26 @@ func (f FolderPublishCmd) handleCopyFile(path, relPath string) {
 		log.Println(errorRedPrefix, "failed to copy file:", err)
 		return
 	}
+}
+
+func strToModuleName(name string) string {
+	name = filepath.ToSlash(name)
+	var modName []rune
+
+	nextToUpper := false
+	for _, v := range name {
+		if nextToUpper {
+			modName = append(modName, unicode.ToUpper(v))
+			nextToUpper = false
+			continue
+		}
+
+		if v == '!' {
+			nextToUpper = true
+			continue
+		}
+		modName = append(modName, v)
+	}
+
+	return string(modName)
 }

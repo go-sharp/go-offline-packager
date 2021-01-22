@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,6 +15,8 @@ import (
 	"github.com/go-sharp/color"
 	"github.com/jessevdk/go-flags"
 )
+
+const version = "v0.1.0"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -38,7 +41,16 @@ func init() {
 
 	_, _ = parser.AddCommand("publish-folder", "Publish archive to a folder so it can be used as proxy source.",
 		"Publish archive to a folder so it can be used as proxy source.", &FolderPublishCmd{})
+
+	_, _ = parser.AddCommand("publish-jfrog", "Publish archive to jfrog artifactory (requires installed and configured jfrog-cli).",
+		"Publish archive to jfrog artifactory (requires installed and configured jfrog-cli).", &JFrogPublishCmd{})
+
+	_, _ = parser.AddCommand("version", "Show version.", "Show version.", &versionCmd{})
+
 	if p, err := exec.LookPath("go"); err == nil {
+		if !filepath.IsAbs(p) {
+			p, _ = filepath.Abs(p)
+		}
 		commonOpts.GoBinPath = p
 	}
 }
@@ -118,6 +130,7 @@ func checkGo() {
 }
 
 func extractZipArchive(src, dst string) error {
+	verboseF("extracting to: %v\n", color.BlueString(dst))
 	if _, err := os.Stat(dst); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -224,4 +237,16 @@ func createZipArchive(dir, dst string) error {
 	}
 
 	return <-done
+}
+
+type versionCmd struct{}
+
+// Execute will be called for the last active (sub)command. The
+// args argument contains the remaining command line arguments. The
+// error that Execute returns will be eventually passed out of the
+// Parse method of the Parser.
+func (v versionCmd) Execute(args []string) error {
+	fmt.Println(version)
+
+	return nil
 }
