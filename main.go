@@ -16,7 +16,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const version = "v0.1.0"
+const version = "v0.1.1"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -209,6 +209,7 @@ func createZipArchive(dir, dst string) error {
 			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
 			continue
 		}
+		defer reader.Close()
 
 		fiStat, err := os.Stat(f)
 		if err != nil {
