@@ -16,7 +16,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const version = "v0.1.1"
+const version = "v0.1.2"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -204,40 +204,42 @@ func createZipArchive(dir, dst string) error {
 	}()
 
 	for f := range work {
-		reader, err := os.Open(f)
-		if err != nil {
+		if err := addFileToArchive(f, dir, zw); err != nil {
 			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
-			continue
-		}
-		defer reader.Close()
-
-		fiStat, err := os.Stat(f)
-		if err != nil {
-			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
-			continue
-		}
-
-		name := strings.TrimLeft(strings.TrimPrefix(f, dir), string(filepath.Separator))
-		fh, err := zip.FileInfoHeader(fiStat)
-		if err != nil {
-			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
-			continue
-		}
-		fh.Name = name
-
-		writer, err := zw.CreateHeader(fh)
-		if err != nil {
-			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
-			continue
-		}
-
-		if _, err := io.Copy(writer, reader); err != nil {
-			log.Printf("%v failed to add to archive: %v\n", errorRedPrefix, err)
-			continue
 		}
 	}
 
 	return <-done
+}
+
+func addFileToArchive(file, dir string, zw *zip.Writer) error {
+	reader, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	fiStat, err := os.Stat(file)
+	if err != nil {
+		return err
+	}
+
+	name := strings.TrimLeft(strings.TrimPrefix(file, dir), string(filepath.Separator))
+	fh, err := zip.FileInfoHeader(fiStat)
+	if err != nil {
+		return err
+	}
+	fh.Name = name
+
+	writer, err := zw.CreateHeader(fh)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(writer, reader); err != nil {
+		return err
+	}
+	return nil
 }
 
 type versionCmd struct{}
