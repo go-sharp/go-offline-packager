@@ -16,7 +16,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const version = "v0.1.2"
+const version = "v0.1.3"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -148,7 +148,7 @@ func extractZipArchive(src, dst string) error {
 	defer zipReader.Close()
 
 	for _, f := range zipReader.File {
-		dFName := filepath.Join(dst, f.Name)
+		dFName := filepath.FromSlash(filepath.Join(dst, f.Name))
 		// We ignore the error here because we get one as soon we open the file
 		_ = os.MkdirAll(filepath.Dir(dFName), 0777)
 		extractToFile(f, dFName)
@@ -225,11 +225,12 @@ func addFileToArchive(file, dir string, zw *zip.Writer) error {
 	}
 
 	name := strings.TrimLeft(strings.TrimPrefix(file, dir), string(filepath.Separator))
+
 	fh, err := zip.FileInfoHeader(fiStat)
 	if err != nil {
 		return err
 	}
-	fh.Name = name
+	fh.Name = filepath.ToSlash(name)
 
 	writer, err := zw.CreateHeader(fh)
 	if err != nil {
