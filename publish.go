@@ -100,7 +100,11 @@ func (j *JFrogPublishCmd) Execute(args []string) error {
 	}()
 
 	log.Println("publishing modules")
-	filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if strings.HasPrefix(info.Name(), "cache") {
 			return filepath.SkipDir
 		}
@@ -116,7 +120,7 @@ func (j *JFrogPublishCmd) Execute(args []string) error {
 	<-doneCh
 
 	log.Println("modules successfully uploaded")
-	return nil
+	return err
 }
 
 func (j JFrogPublishCmd) getJFrogCfg() (config []string) {
@@ -171,6 +175,10 @@ func (f FolderPublishCmd) Execute(args []string) error {
 	dirPrefix := filepath.Join(workDir, "cache", "download")
 	var wg sync.WaitGroup
 	err = filepath.Walk(dirPrefix, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		relPath := strings.TrimLeft(strings.TrimPrefix(path, dirPrefix), string(filepath.Separator))
 
 		if strings.HasPrefix(relPath, "sumdb") && !info.IsDir() {
@@ -194,10 +202,11 @@ func (f FolderPublishCmd) Execute(args []string) error {
 		return nil
 	})
 
-	if err != nil {
-		log.Println(errorRedPrefix, err)
-	}
 	wg.Wait()
+
+	if err != nil {
+		return err
+	}
 
 	ppath, _ := filepath.Abs(f.Output)
 	log.Println("published archive to:", color.GreenString(ppath))
