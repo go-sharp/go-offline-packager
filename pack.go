@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -42,16 +41,16 @@ func (p *PackCmd) Execute(args []string) error {
 
 	if p.ModFile != "" {
 		verboseF("copying go.mod file\n")
-		modContent, err := ioutil.ReadFile(p.ModFile)
+		modContent, err := os.ReadFile(p.ModFile)
 		if err != nil {
 			log.Fatalf("failed to copy go.mod file: %v\n", color.RedString(err.Error()))
 		}
-		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), modContent, 0664); err != nil {
+		if err := os.WriteFile(filepath.Join(workDir, "go.mod"), modContent, 0664); err != nil {
 			log.Fatalf("failed to copy go.mod file: %v\n", color.RedString(err.Error()))
 		}
 	} else {
 		verboseF("processing modules\n")
-		if err := ioutil.WriteFile(filepath.Join(workDir, "go.mod"), []byte(gomodTemp), 0664); err != nil {
+		if err := os.WriteFile(filepath.Join(workDir, "go.mod"), []byte(gomodTemp), 0664); err != nil {
 			log.Fatalf("failed to write go.mod file: %v\n", color.RedString(err.Error()))
 		}
 
@@ -65,13 +64,16 @@ func (p *PackCmd) Execute(args []string) error {
 
 	}
 
+	cmdArgs := []string{"mod", "download"}
 	if p.DoTransitive {
 		p.addTransitive(workDir, modCache)
+		cmdArgs = append(cmdArgs, "all")
 	}
 
 	log.Println("download all dependencies")
-	if err := getGoCommand(workDir, modCache, "mod", "download", "all").Run(); err != nil {
+	if err := getGoCommand(workDir, modCache, cmdArgs...).Run(); err != nil {
 		log.Fatalln("failed to download dependencies:", color.RedString(err.Error()))
+
 	}
 
 	log.Println("creating archive")
@@ -84,6 +86,7 @@ func (p *PackCmd) Execute(args []string) error {
 
 func (p *PackCmd) addTransitive(workDir, modCache string) {
 	hasMore := false
+	modSet := map[string]struct{}{}
 
 	for {
 		output, err := getGoCommand(workDir, modCache, "mod", "graph").Output()
@@ -101,10 +104,11 @@ func (p *PackCmd) addTransitive(workDir, modCache string) {
 			mods := strings.Split(dep, " ")
 			mod := strings.Trim(mods[len(mods)-1], " ")
 
-			if mod == "" || folderExists(filepath.Join(modCache, moduleNameToCaseInsensitive(mod))) {
+			if _, exists := modSet[mod]; exists || mod == "" || folderExists(filepath.Join(modCache, moduleNameToCaseInsensitive(mod))) {
 				continue
 			}
 
+			modSet[mod] = struct{}{}
 			verboseF("adding transitive module: %v\n", color.BlueString(mod))
 			if output, err := getGoCommand(workDir, modCache, "get", mod).CombinedOutput(); err != nil {
 				log.Printf("failed to add module: %v\n", color.RedString(mod))
