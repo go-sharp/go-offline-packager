@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -79,7 +78,7 @@ func (j *JFrogPublishCmd) Execute(args []string) error {
 			if _, err := os.Stat(goModF); errors.Is(err, os.ErrNotExist) {
 				modName := filepath.Dir(strings.TrimPrefix(mod, workDir+string(filepath.Separator)))
 				modName = strToModuleName(modName + "/" + pkg[0])
-				if err := ioutil.WriteFile(goModF, []byte(fmt.Sprintf("module %v\n", modName)), 0664); err != nil {
+				if err := os.WriteFile(goModF, []byte(fmt.Sprintf("module %v\n", modName)), 0664); err != nil {
 					verboseF("%v: %v\n", errorRedPrefix, err)
 				}
 			}
@@ -262,7 +261,7 @@ func (f FolderPublishCmd) handleModule(path, prefix string) {
 
 	content := []byte(strings.Join(version, "\n"))
 	content = append(content, '\n')
-	if err := ioutil.WriteFile(filepath.Join(dstPath, "list"), content, 0664); err != nil {
+	if err := os.WriteFile(filepath.Join(dstPath, "list"), content, 0664); err != nil {
 		log.Println(errorRedPrefix, "failed to update list file: ", err)
 		return
 	}
