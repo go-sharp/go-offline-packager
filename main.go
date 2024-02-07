@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -16,7 +15,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const version = "v0.1.3"
+const version = "v0.1.4"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -67,7 +66,7 @@ func main() {
 }
 
 func createTempWorkDir() (wd string, cleanFn func()) {
-	dir, err := ioutil.TempDir(os.TempDir(), "gop_")
+	dir, err := os.MkdirTemp(os.TempDir(), "gop_")
 	if err != nil {
 		log.Fatalln("failed to create temporary working directory: ", color.RedString(err.Error()))
 	}
