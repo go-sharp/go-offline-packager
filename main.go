@@ -38,6 +38,9 @@ func init() {
 	_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.",
 		"Download modules and pack it into a zip file.", &PackCmd{})
 
+	_, _ = parser.AddCommand("pack2", "Download modules and pack it into a zip file.",
+		"Download modules and pack it into a zip file.", &PackV2Cmd{})
+
 	_, _ = parser.AddCommand("publish-folder", "Publish archive to a folder so it can be used as proxy source.",
 		"Publish archive to a folder so it can be used as proxy source.", &FolderPublishCmd{})
 
