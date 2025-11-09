@@ -32,20 +32,19 @@ Usage:
 Download modules and pack it into a zip file.
 
 Application Options:
-      --go-bin=          Set full path to go binary (default: C:\Program
-                         Files\Go\bin\go.exe) [%GOP_GO_BIN%]
+      --go-bin=          Set full path to go binary (default: C:\Program Files\Go\bin\go.exe) [%GOP_GO_BIN%]
   -v, --verbose          Verbose output
 
 Help Options:
   -h, --help             Show this help message
 
 [pack command options]
-      -m, --module=      Modules to pack (github.com/jessevdk/go-flags or
-                         github.com/jessevdk/go-flags@v1.4.0)
-      -g, --go-mod-file= Pack all dependencies specified in go.mod file.
-      -o, --out=         Output file name of the zip archive. (default:
-                         gop_dependencies.zip)
-      -t, --transitive   Ensure all transitive dependencies are included.
+      -m, --module=               Modules to pack (github.com/jessevdk/go-flags or github.com/jessevdk/go-flags@v1.4.0)
+      -g, --go-mod-file=          Pack all dependencies specified in go.mod file.
+      -o, --out=                  Output file name of the zip archive. (default: gop_dependencies.zip)
+      -t, --transitive            Ensure all transitive dependencies are included.
+      -c, --concurrent-downloads= Number of concurrent downloads. (default: 8)
+
 ```
 One can either use `-m` to specify dependencies or use the `-g` flag to use an existing go.mod file.
 

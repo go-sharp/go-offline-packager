@@ -15,7 +15,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const version = "v0.1.4"
+const version = "v0.2.0"
 
 var commonOpts options
 var parser = flags.NewParser(&commonOpts, flags.HelpFlag|flags.PassDoubleDash)
@@ -35,8 +35,16 @@ type options struct {
 
 func init() {
 	log.SetFlags(0)
-	_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.",
-		"Download modules and pack it into a zip file.", &PackCmd{})
+
+	var packVersion = os.Getenv("GOP_PACK_VERSION")
+
+	if packVersion == "1" {
+		_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.",
+			"Download modules and pack it into a zip file.", &PackCmd{})
+	} else {
+		_, _ = parser.AddCommand("pack", "Download modules and pack it into a zip file.",
+			"Download modules and pack it into a zip file.", &PackV2Cmd{})
+	}
 
 	_, _ = parser.AddCommand("publish-folder", "Publish archive to a folder so it can be used as proxy source.",
 		"Publish archive to a folder so it can be used as proxy source.", &FolderPublishCmd{})
