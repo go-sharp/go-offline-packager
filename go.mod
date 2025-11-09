@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/go-sharp/color v1.9.1
 	github.com/jessevdk/go-flags v1.6.1
+	github.com/magefile/mage v1.15.0
 )
 
 require (
